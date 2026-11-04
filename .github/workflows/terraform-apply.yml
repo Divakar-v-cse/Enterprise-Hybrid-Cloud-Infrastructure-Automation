@@ -61,7 +61,7 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: gha-terraform-apply
 
-      - uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: 1.9.5
           terraform_wrapper: false
