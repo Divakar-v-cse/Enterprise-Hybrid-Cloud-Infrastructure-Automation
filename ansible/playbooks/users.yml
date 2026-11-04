@@ -1,0 +1,13 @@
+---
+- name: Reconcile local accounts on Linux
+  hosts: linux
+  become: true
+  gather_facts: true
+  roles:
+    - role: users
+
+- name: Reconcile local accounts on Windows
+  hosts: windows
+  gather_facts: true
+  roles:
+    - role: users

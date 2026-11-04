@@ -1,0 +1,23 @@
+---
+- name: Enable the Windows firewall profiles
+  community.windows.win_firewall:
+    profiles:
+      - Domain
+      - Private
+    state: enabled
+    inbound_action: block
+    outbound_action: allow
+
+- name: Apply the declared firewall rules
+  community.windows.win_firewall_rule:
+    name: "{{ item.name }}"
+    localport: "{{ item.port }}"
+    protocol: "{{ item.protocol }}"
+    action: "{{ item.action }}"
+    direction: "{{ item.direction }}"
+    profiles: "{{ item.profile | default('domain,private') }}"
+    state: present
+    enabled: true
+  loop: "{{ windows_firewall_rules | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"

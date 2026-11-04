@@ -1,0 +1,137 @@
+---
+# Read-only conformance check. Fails the run when the live host has drifted
+# from the desired configuration, and writes a JSON report on the controller.
+- name: Validate the Linux configuration baseline
+  hosts: linux
+  become: true
+  gather_facts: true
+  gather_subset: [min]
+
+  tasks:
+    - name: Collect the service state
+      ansible.builtin.command: "systemctl is-active {{ item }}"
+      loop: [nginx, chronyd, auditd, sshd]
+      register: linux_services
+      changed_when: false
+      failed_when: false
+
+    - name: Assert the required services are active
+      ansible.builtin.assert:
+        that:
+          - item.stdout == "active"
+        fail_msg: "{{ item.item }} is not active on {{ inventory_hostname }} (state={{ item.stdout }})"
+        quiet: true
+      loop: "{{ linux_services.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+    - name: Check the managed configuration files
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop:
+        - /etc/ssh/sshd_config.d/99-hccp.conf
+        - /etc/chrony.conf
+        - /etc/nginx/conf.d/hccp.conf
+        - /etc/sysctl.d/60-hccp-hardening.conf
+      register: linux_files
+
+    - name: Assert the managed files are present
+      ansible.builtin.assert:
+        that:
+          - item.stat.exists
+        fail_msg: "{{ item.item }} is missing on {{ inventory_hostname }}"
+        quiet: true
+      loop: "{{ linux_files.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+    - name: Read the effective SSH configuration
+      ansible.builtin.command: sshd -T
+      register: sshd_effective
+      changed_when: false
+
+    - name: Assert SSH hardening is effective
+      ansible.builtin.assert:
+        that:
+          - "'permitrootlogin no' in sshd_effective.stdout"
+          - "'passwordauthentication no' in sshd_effective.stdout"
+        fail_msg: "SSH hardening is not effective on {{ inventory_hostname }}"
+        quiet: true
+
+    - name: Verify the health endpoint
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ app_port }}{{ app_health_path }}"
+        status_code: 200
+      register: linux_health
+      changed_when: false
+      failed_when: false
+
+    - name: Assert the application is healthy
+      ansible.builtin.assert:
+        that:
+          - linux_health.status == 200
+        fail_msg: "Health endpoint returned {{ linux_health.status | default('no response') }}"
+        quiet: true
+
+    - name: Record the host result
+      ansible.builtin.set_fact:
+        hccp_host_report:
+          host: "{{ inventory_hostname }}"
+          environment: "{{ target_env }}"
+          os: "{{ ansible_distribution }} {{ ansible_distribution_version }}"
+          compliant: true
+          checked_at: "{{ ansible_date_time.iso8601 }}"
+
+    - name: Persist the per-host report on the controller
+      ansible.builtin.copy:
+        dest: "{{ playbook_dir }}/../reports/{{ target_env }}/{{ inventory_hostname }}.json"
+        mode: "0644"
+        content: "{{ hccp_host_report | to_nice_json }}"
+      delegate_to: localhost
+      become: false
+
+- name: Validate the Windows configuration baseline
+  hosts: windows
+  gather_facts: true
+
+  tasks:
+    - name: Read the IIS service state
+      ansible.windows.win_service_info:
+        name: W3SVC
+      register: iis_service
+
+    - name: Assert IIS is running
+      ansible.builtin.assert:
+        that:
+          - iis_service.exists
+          - iis_service.services[0].state == 'running'
+        fail_msg: "W3SVC is not running on {{ inventory_hostname }}"
+        quiet: true
+
+    - name: Read the site health endpoint
+      ansible.windows.win_uri:
+        url: "http://localhost/health.txt"
+        status_code: 200
+        return_content: true
+      register: win_health
+      failed_when: false
+
+    - name: Assert the site responds
+      ansible.builtin.assert:
+        that:
+          - win_health.status == 200
+        fail_msg: "IIS health endpoint returned {{ win_health.status | default('no response') }}"
+        quiet: true
+
+    - name: Read the legacy TLS policy
+      ansible.windows.win_reg_stat:
+        path: 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.0\Server'
+        name: Enabled
+      register: tls10
+
+    - name: Assert TLS 1.0 is disabled
+      ansible.builtin.assert:
+        that:
+          - tls10.value == 0
+        fail_msg: "TLS 1.0 is still enabled on {{ inventory_hostname }}"
+        quiet: true

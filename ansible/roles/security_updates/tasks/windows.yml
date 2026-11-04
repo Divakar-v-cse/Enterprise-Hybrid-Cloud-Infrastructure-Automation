@@ -1,0 +1,30 @@
+---
+- name: Install the PSWindowsUpdate module from the gallery
+  ansible.windows.win_shell: |
+    if (-not (Get-Module -ListAvailable -Name PSWindowsUpdate)) {
+      Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force | Out-Null
+      Install-Module PSWindowsUpdate -Force -Confirm:$false -Scope AllUsers
+    }
+  args:
+    creates: C:\Program Files\WindowsPowerShell\Modules\PSWindowsUpdate
+  changed_when: false
+
+- name: Apply Windows security updates
+  ansible.windows.win_updates:
+    category_names: "{{ windows_patch_categories | default(['SecurityUpdates', 'CriticalUpdates']) }}"
+    state: installed
+    reboot: "{{ 'yes' if patch_reboot | default(true) | bool else 'no' }}"
+    reboot_timeout: "{{ patch_reboot_timeout | default(900) }}"
+  register: win_updates_result
+  when: patch_now | default(false) | bool
+  retries: 2
+  delay: 30
+  until: win_updates_result is not failed
+
+- name: Report pending updates for the compliance scan
+  ansible.windows.win_shell: |
+    (Get-WindowsUpdate -IsNotInstalled -ErrorAction SilentlyContinue | Measure-Object).Count
+  register: win_pending_updates
+  changed_when: false
+  failed_when: false
+  when: not (patch_now | default(false) | bool)

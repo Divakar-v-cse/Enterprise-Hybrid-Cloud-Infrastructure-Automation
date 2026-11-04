@@ -1,0 +1,100 @@
+name: Terraform apply
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment (protected)
+        type: choice
+        options: [dev, prod]
+        required: true
+        default: dev
+      confirm:
+        description: Type "apply" to confirm the change
+        type: string
+        required: true
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: terraform-apply-${{ github.event.inputs.environment }}
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ap-south-1
+  TF_IN_AUTOMATION: "true"
+  TF_INPUT: "false"
+
+jobs:
+  guard:
+    name: Confirm intent
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate confirmation and repository wiring
+        run: |
+          if [ "${{ github.event.inputs.confirm }}" != "apply" ]; then
+            echo "Confirmation string must be 'apply'." >&2
+            exit 1
+          fi
+          if [ -z "${{ vars.TF_STATE_BUCKET }}" ] || [ -z "${{ vars.AWS_OIDC_ROLE_ARN }}" ]; then
+            echo "Repository variables TF_STATE_BUCKET and AWS_OIDC_ROLE_ARN must be configured." >&2
+            exit 1
+          fi
+
+  apply:
+    name: Apply (${{ github.event.inputs.environment }})
+    needs: guard
+    runs-on: ubuntu-latest
+    # Requires a manual reviewer on the matching GitHub Environment.
+    environment: ${{ github.event.inputs.environment }}
+    defaults:
+      run:
+        working-directory: terraform/environments/${{ github.event.inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_OIDC_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: gha-terraform-apply
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.5
+          terraform_wrapper: false
+
+      - name: Init
+        run: |
+          terraform init -input=false -no-color \
+            -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" \
+            -backend-config="key=enterprise-hybrid-cloud/${{ github.event.inputs.environment }}/terraform.tfstate" \
+            -backend-config="region=${{ env.AWS_REGION }}" \
+            -backend-config="encrypt=true" \
+            -backend-config="dynamodb_table=${{ vars.TF_LOCK_TABLE }}"
+
+      - name: Plan
+        run: terraform plan -input=false -no-color -out=tfplan
+
+      - name: Apply
+        run: terraform apply -input=false -no-color -auto-approve tfplan
+
+      - name: Export outputs
+        run: terraform output -json > outputs.json
+
+      - name: Upload outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-outputs-${{ github.event.inputs.environment }}
+          path: terraform/environments/${{ github.event.inputs.environment }}/outputs.json
+          retention-days: 30
+
+      - name: Publish summary
+        if: always()
+        run: |
+          echo "### Apply · ${{ github.event.inputs.environment }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Commit: \`${{ github.sha }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "Actor: \`${{ github.actor }}\`" >> "$GITHUB_STEP_SUMMARY"

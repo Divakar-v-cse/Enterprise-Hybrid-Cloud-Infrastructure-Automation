@@ -1,0 +1,13 @@
+---
+common_packages: "{{ baseline_packages | default(['curl', 'unzip', 'tar', 'jq', 'git', 'chrony', 'audit', 'rsyslog']) }}"
+common_security_packages: "{{ security_packages | default([]) }}"
+common_timezone: "{{ timezone | default('UTC') }}"
+common_ntp_servers: "{{ ntp_servers | default(['169.254.169.123']) }}"
+common_journald_max_use: "500M"
+common_journald_retention: "30day"
+common_sysctl_settings: "{{ sysctl_settings | default({}) }}"
+common_motd_banner: |
+  {{ project_name | default('hccp') }} / {{ environment_name | default('dev') }}
+  Managed by Ansible - manual changes are reverted on the next run.
+  Access is logged. Use SSM Session Manager for shell access.
+common_manage_ssh: true

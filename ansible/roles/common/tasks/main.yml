@@ -1,0 +1,34 @@
+---
+- name: Assert a supported platform
+  ansible.builtin.assert:
+    that:
+      - ansible_os_family in ['RedHat', 'Debian']
+    fail_msg: "Unsupported platform {{ ansible_distribution }} for the Linux baseline"
+    quiet: true
+  tags: [always]
+
+- name: Install baseline packages
+  ansible.builtin.import_tasks: packages.yml
+  tags: [packages]
+
+- name: Configure time synchronisation
+  ansible.builtin.import_tasks: timesync.yml
+  tags: [timesync]
+
+- name: Apply kernel and audit hardening
+  ansible.builtin.import_tasks: hardening.yml
+  tags: [hardening]
+
+- name: Harden the SSH daemon
+  ansible.builtin.import_tasks: sshd.yml
+  when: common_manage_ssh | bool
+  tags: [sshd, hardening]
+
+- name: Deploy the login banner
+  ansible.builtin.copy:
+    content: "{{ common_motd_banner }}"
+    dest: /etc/motd
+    owner: root
+    group: root
+    mode: "0644"
+  tags: [hardening]

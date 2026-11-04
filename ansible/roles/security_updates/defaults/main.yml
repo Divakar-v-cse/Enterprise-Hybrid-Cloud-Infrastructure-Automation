@@ -1,0 +1,7 @@
+---
+patch_now: false
+patch_reboot: true
+patch_reboot_timeout: 900
+windows_patch_categories:
+  - SecurityUpdates
+  - CriticalUpdates

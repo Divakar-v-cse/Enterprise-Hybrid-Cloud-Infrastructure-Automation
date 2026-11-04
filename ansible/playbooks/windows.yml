@@ -1,0 +1,26 @@
+---
+- name: Configure Windows servers
+  hosts: windows
+  gather_facts: true
+  any_errors_fatal: true
+
+  pre_tasks:
+    - name: Verify WinRM connectivity
+      ansible.windows.win_ping:
+
+  roles:
+    - role: users
+      tags: [users, baseline]
+    - role: firewall
+      tags: [firewall, hardening]
+    - role: security_updates
+      tags: [patch, security]
+    - role: windows_iis
+      tags: [iis, app, deploy]
+
+  post_tasks:
+    - name: Summarise the applied configuration
+      ansible.builtin.debug:
+        msg:
+          - "host={{ inventory_hostname }} os={{ ansible_distribution }} {{ ansible_distribution_version }}"
+          - "site={{ iis_site_name }} pool={{ iis_app_pool }} port={{ iis_binding_port }}"

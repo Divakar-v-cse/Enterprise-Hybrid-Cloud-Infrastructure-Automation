@@ -1,0 +1,28 @@
+---
+iis_site_name: HCCP
+iis_app_pool: HCCP-AppPool
+iis_physical_path: C:\inetpub\hccp
+iis_binding_port: 80
+iis_app_pool_identity: ApplicationPoolIdentity
+
+windows_firewall_rules:
+  - name: HCCP-HTTP-In
+    port: 80
+    protocol: tcp
+    action: allow
+    direction: in
+    profile: domain,private
+  - name: HCCP-WINRM-In
+    port: 5986
+    protocol: tcp
+    action: allow
+    direction: in
+    profile: domain,private
+
+windows_disable_tls_10: true
+windows_disable_tls_11: true
+windows_disable_ssl3: true
+
+windows_patch_categories:
+  - SecurityUpdates
+  - CriticalUpdates

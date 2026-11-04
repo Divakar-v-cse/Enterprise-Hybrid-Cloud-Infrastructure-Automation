@@ -1,0 +1,12 @@
+---
+- name: Configure unattended security updates (Debian family)
+  ansible.builtin.include_tasks: debian.yml
+  when: ansible_os_family == 'Debian'
+
+- name: Configure automatic security updates (RedHat family)
+  ansible.builtin.include_tasks: redhat.yml
+  when: ansible_os_family == 'RedHat'
+
+- name: Configure Windows Update for security patches
+  ansible.builtin.include_tasks: windows.yml
+  when: ansible_os_family == 'Windows'

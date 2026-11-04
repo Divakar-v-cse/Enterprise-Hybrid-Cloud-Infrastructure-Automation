@@ -1,0 +1,59 @@
+---
+- name: Ensure administrative groups exist
+  ansible.builtin.group:
+    name: "{{ item }}"
+    state: present
+  loop: "{{ (admin_users | map(attribute='groups') | flatten | unique) + ['deployers'] }}"
+
+- name: Create administrative accounts
+  ansible.builtin.user:
+    name: "{{ item.name }}"
+    comment: "{{ item.comment | default('Managed by Ansible') }}"
+    groups: "{{ item.groups | default([]) }}"
+    append: true
+    shell: "{{ item.shell | default('/bin/bash') }}"
+    create_home: true
+    state: present
+  loop: "{{ admin_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: users_created
+
+- name: Authorise the declared public keys
+  ansible.posix.authorized_key:
+    user: "{{ item.name }}"
+    key: "{{ item.ssh_key }}"
+    state: present
+    exclusive: false
+  loop: "{{ admin_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when:
+    - item.ssh_key is defined
+    - item.ssh_key | length > 20
+  no_log: true
+
+- name: Install sudo policies
+  ansible.builtin.template:
+    src: sudoers.j2
+    dest: "/etc/sudoers.d/90-hccp-{{ item.name }}"
+    owner: root
+    group: root
+    mode: "0440"
+    validate: "/usr/sbin/visudo -cf %s"
+  loop: "{{ admin_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Remove users that must not exist on managed hosts
+  ansible.builtin.user:
+    name: "{{ item }}"
+    state: absent
+    remove: false
+  loop: "{{ removed_users | default([]) }}"
+  when: item not in (admin_users | map(attribute='name') | list)
+
+- name: Lock the root password (SSM/SSH keys only)
+  ansible.builtin.user:
+    name: root
+    password_lock: true

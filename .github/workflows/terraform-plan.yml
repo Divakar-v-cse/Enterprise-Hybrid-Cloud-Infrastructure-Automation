@@ -1,0 +1,91 @@
+name: Terraform plan
+
+on:
+  pull_request:
+    paths:
+      - "terraform/**"
+      - ".github/workflows/terraform-plan.yml"
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Environment to plan
+        type: choice
+        options: [dev, prod]
+        default: dev
+
+permissions:
+  id-token: write # OIDC -> AWS, no long-lived keys
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: terraform-plan-${{ github.event.inputs.environment || 'dev' }}
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ap-south-1
+  TF_IN_AUTOMATION: "true"
+  TF_INPUT: "false"
+
+jobs:
+  plan:
+    name: Plan (${{ github.event.inputs.environment || 'dev' }})
+    runs-on: ubuntu-latest
+    # The repository must be wired to AWS (OIDC role + state bucket) before
+    # this job can run; otherwise it is skipped instead of failing noisily.
+    if: ${{ vars.TF_STATE_BUCKET != '' && vars.AWS_OIDC_ROLE_ARN != '' }}
+    environment: ${{ github.event.inputs.environment || 'dev' }}
+    defaults:
+      run:
+        working-directory: terraform/environments/${{ github.event.inputs.environment || 'dev' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_OIDC_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: gha-terraform-plan
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.5
+          terraform_wrapper: false
+
+      - name: Format check
+        working-directory: terraform
+        run: terraform fmt -check -recursive
+
+      - name: Init
+        run: |
+          terraform init -input=false -no-color \
+            -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" \
+            -backend-config="key=enterprise-hybrid-cloud/${{ github.event.inputs.environment || 'dev' }}/terraform.tfstate" \
+            -backend-config="region=${{ env.AWS_REGION }}" \
+            -backend-config="encrypt=true" \
+            -backend-config="dynamodb_table=${{ vars.TF_LOCK_TABLE }}"
+
+      - name: Validate
+        run: terraform validate -no-color
+
+      - name: Plan
+        run: |
+          terraform plan -input=false -no-color -out=tfplan
+          terraform show -no-color tfplan > plan.txt
+
+      - name: Publish plan to the job summary
+        if: always()
+        run: |
+          echo "### Terraform plan · ${{ github.event.inputs.environment || 'dev' }}" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          tail -n 200 plan.txt >> "$GITHUB_STEP_SUMMARY" || true
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload plan
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-${{ github.event.inputs.environment || 'dev' }}
+          path: |
+            terraform/environments/${{ github.event.inputs.environment || 'dev' }}/plan.txt
+          retention-days: 14

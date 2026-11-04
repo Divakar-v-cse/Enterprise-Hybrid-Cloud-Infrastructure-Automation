@@ -1,0 +1,24 @@
+---
+- name: Refresh the package cache (Debian family)
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+  when: ansible_os_family == 'Debian'
+
+- name: Install baseline packages (Debian family)
+  ansible.builtin.apt:
+    name: "{{ common_packages | map('regex_replace', '^vim-enhanced$', 'vim') | list }}"
+    state: present
+  when: ansible_os_family == 'Debian'
+
+- name: Install baseline packages (RedHat family)
+  ansible.builtin.dnf:
+    name: "{{ common_packages }}"
+    state: present
+  when: ansible_os_family == 'RedHat'
+
+- name: Install security tooling
+  ansible.builtin.package:
+    name: "{{ common_security_packages }}"
+    state: present
+  when: common_security_packages | length > 0

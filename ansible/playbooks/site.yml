@@ -1,0 +1,8 @@
+---
+# Full convergence: Linux baseline + application, then Windows IIS.
+# Run: ansible-playbook playbooks/site.yml -i inventories/dev/hosts.yml --check --diff
+- name: Converge the Linux fleet
+  ansible.builtin.import_playbook: linux.yml
+
+- name: Converge the Windows fleet
+  ansible.builtin.import_playbook: windows.yml

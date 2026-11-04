@@ -1,0 +1,50 @@
+---
+# Shared variables for the production environment.
+project_name: hccp
+environment_name: prod
+domain_name: hccp.internal
+timezone: Asia/Kolkata
+ntp_servers:
+  - 169.254.169.123
+  - time.aws.com
+
+# Break-glass accounts only. Day-to-day access uses SSO + SSM.
+admin_users:
+  - name: platform-admin
+    comment: Platform engineering break-glass account
+    groups: [wheel, sudo]
+    shell: /bin/bash
+    sudo_nopasswd: false
+    ssh_key: "{{ lookup('env', 'HCCP_ADMIN_SSH_KEY') | default('', true) }}"
+  - name: deploy-bot
+    comment: CI deployment account (command restricted)
+    groups: [deployers]
+    shell: /bin/bash
+    sudo_nopasswd: true
+    ssh_key: "{{ lookup('env', 'HCCP_DEPLOY_SSH_KEY') | default('', true) }}"
+
+# Never delete the cloud-init user until SSM access is verified in this account.
+removed_users: []
+
+baseline_packages:
+  - curl
+  - unzip
+  - tar
+  - vim-enhanced
+  - jq
+  - git
+  - chrony
+  - audit
+  - rsyslog
+
+security_packages:
+  - aide
+  - aide-common
+
+patch_reboot: true
+patch_reboot_timeout: 900
+
+app_name: hccp-web
+app_port: 8080
+app_health_path: /healthz
+app_release_version: "2.14.0"

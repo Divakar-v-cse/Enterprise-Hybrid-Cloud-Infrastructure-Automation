@@ -1,0 +1,50 @@
+# Local validation environment.
+#   docker compose up --build
+#   dashboard -> http://localhost:8080   api -> http://localhost:8000/docs
+#
+# The API runs with the deterministic mock provider so no AWS credentials are
+# required. Point HCCP_PROVIDER at "aws" and mount credentials to use a real
+# account.
+
+name: hccp
+
+services:
+  api:
+    build:
+      context: ./backend
+    image: hccp/api:local
+    environment:
+      HCCP_ENVIRONMENT: local
+      HCCP_LOG_LEVEL: INFO
+      HCCP_PROVIDER: mock
+      HCCP_AWS_REGION: ap-south-1
+      HCCP_SEED_DEMO_DATA: "true"
+      HCCP_SECRET_KEY: local-compose-signing-key-change-before-use
+      HCCP_CORS_ORIGINS: '["http://localhost:8080","http://localhost:5173"]'
+      HCCP_DRIFT_INTERVAL_SECONDS: "300"
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3).status == 200 else 1)",
+        ]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+
+  dashboard:
+    build:
+      context: ./frontend
+    image: hccp/dashboard:local
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    restart: unless-stopped

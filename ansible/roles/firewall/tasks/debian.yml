@@ -1,0 +1,36 @@
+---
+- name: Install ufw
+  ansible.builtin.apt:
+    name: ufw
+    state: present
+    update_cache: true
+
+- name: Set the default inbound policy to deny
+  community.general.ufw:
+    direction: incoming
+    policy: deny
+
+- name: Allow the declared TCP ports
+  community.general.ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: tcp
+  loop: "{{ firewall_allowed_tcp_ports }}"
+
+- name: Allow the declared UDP ports
+  community.general.ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: udp
+  loop: "{{ firewall_allowed_udp_ports | default([]) }}"
+
+- name: Enable the firewall
+  community.general.ufw:
+    state: enabled
+    logging: low
+
+- name: Ensure ufw is enabled at boot
+  ansible.builtin.service:
+    name: ufw
+    state: started
+    enabled: true

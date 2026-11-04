@@ -1,0 +1,1217 @@
+{
+  "$schema": "https://hccp.local/schemas/desired-state-v1.json",
+  "description": "Declared infrastructure contract. Produced from Terraform state and committed so drift can be detected without a plan. Values here are the source of truth; the live account is compared against them.",
+  "version": 3,
+  "environments": {
+    "dev": [
+      {
+        "name": "hccp-dev-alb",
+        "kind": "load_balancer",
+        "config": {
+          "scheme": "internet-facing",
+          "type": "application",
+          "listeners": [
+            {
+              "port": 443,
+              "protocol": "HTTPS"
+            },
+            {
+              "port": 80,
+              "protocol": "HTTP",
+              "redirect_to": 443
+            }
+          ],
+          "deletion_protection": false,
+          "access_logs_enabled": true,
+          "drop_invalid_headers": true,
+          "waf_attached": true
+        },
+        "tags": {
+          "Environment": "dev",
+          "Owner": "platform-engineering",
+          "CostCenter": "CC-4471",
+          "ManagedBy": "terraform",
+          "Tier": "edge"
+        }
+      },
+      {
+        "name": "hccp-dev-alb-sg",
+        "kind": "security_group",
+        "config": {
+          "description": "Public ingress for the application load balancer",
+          "ingress": [
+            {
+              "protocol": "tcp",
+              "from_port": 443,
+              "to_port": 443,
+              "cidr": "0.0.0.0/0"
+            },
+            {
+              "protocol": "tcp",
+              "from_port": 80,
+              "to_port": 80,
+              "cidr": "0.0.0.0/0"
+            }
+          ],
+          "egress": [
+            {
+              "protocol": "tcp",
+              "from_port": 443,
+              "to_port": 443,
+              "cidr": "0.0.0.0/0"
+            }
+          ]
+        },
+        "tags": {
+          "Environment": "dev",
+          "Owner": "platform-engineering",
+          "CostCenter": "CC-4471",
+          "ManagedBy": "terraform",
+          "Tier": "edge"
+        }
+      },
+      {
+        "name": "hccp-dev-app-01",
+        "kind": "ec2",
+        "config": {
+          "instance_type": "t3.micro",
+          "os": "Linux",
+          "ami": "ami-0a7f4c2b1f9a1c3d4",
+          "private_ip": "10.20.16.12",
+          "public_ip": null,
+          "availability_zone": "ap-south-1a",
+          "imds_v2_required": true,
+          "ebs_encrypted": true,
+          "ssm_managed": true,
+          "backup_enabled": true,
+          "subnet_tier": "private"
+        },
+        "tags": {
+          "Environment": "dev",
+          "Owner": "platform-engineering",
+          "CostCenter": "CC-4471",
+          "ManagedBy": "terraform",
+          "Tier": "compute",
+          "PatchGroup": "dev-linux"
+        }
+      },
+      {
+        "name": "hccp-dev-data-1",
+        "kind": "subnet",
+        "config": {
+          "cidr_block": "10.20.36.0/24",
+          "availability_zone": "ap-south-1a",
+          "tier": "data",
+          "map_public_ip_on_launch": false
+        },
+        "tags": {
+          "Environment": "dev",
+          "Owner": "platform-engineering",
+          "CostCenter": "CC-4471",
+          "ManagedBy": "terraform",
+          "Tier": "data"
+        }
+      },
+      {
+        "name": "hccp-dev-data-2",
+        "kind": "subnet",
+        "config": {
+          "cidr_block": "10.20.40.0/24",
+          "availability_zone": "ap-south-1b",
+          "tier": "data",
+          "map_public_ip_on_launch": false
+        },
+        "tags": {
+          "Environment": "dev",
+          "Owner": "platform-engineering",
+          "CostCenter": "CC-4471",
+          "ManagedBy": "terraform",
+          "Tier": "data"
+        }
+      },
+      {
+        "name": "hccp-dev-data-3",
+        "kind": "subnet",
+        "config": {
+          "cidr_block": "10.20.44.0/24",
+          "availability_zone": "ap-south-1c",
+          "tier": "data",
+          "map_public_ip_on_launch": false
+        },
+        "tags": {
+          "Environment": "dev",
+          "Owner": "platform-engineering",
+          "CostCenter": "CC-4471",
+          "ManagedBy": "terraform",
+          "Tier": "data"
+        }
+      },
+      {
+        "name": "hccp-dev-data-sg",
+        "kind": "security_group",
+        "config": {
+          "description": "Database tier - no internet ingress",
+          "ingress": [
+            {
+              "protocol": "tcp",
+              "from_port": 5432,
+              "to_port": 5432,
+              "source_sg": "sg-dev-linux"
+            }
+          ],
+          "egress": []
+        },
+        "tags": {
+          "Environment": "dev",
+          "Owner": "platform-engineering",
+          "CostCenter": "CC-4471",
+          "ManagedBy": "terraform",
+          "Tier": "data"
+        }
+      },
+      {
+        "name": "hccp-dev-ec2-role",
+        "kind": "iam_role",
+        "config": {
+          "assume_role_policy": {
+            "Service": "ec2.amazonaws.com"
+          },
+          "inline_policies": [
+            {
+              "name": "runtime-access",
+              "statements": [
+                {
+                  "Effect": "Allow",
+                  "Action": "*",
+                  "Resource": "*"
+                }
+              ]
+            }
+          ],
+          "instance_profile": "hccp-dev-ec2-profile",
+          "permissions_boundary": "arn:aws:iam::123456789012:policy/hccp-dev-boundary"
+        },
+        "tags": {
+          "Environment": "dev",
+          "Owner": "platform-engineering",
+          "CostCenter": "CC-4471",
+          "ManagedBy": "terraform",
+          "Tier": "identity"
+        }
+      },
+      {
+        "name": "hccp-dev-github-oidc-role",
+        "kind": "iam_role",
+        "config": {
+          "assume_role_policy": {
+            "Service": "oidc"
+          },
+          "federated_provider": "token.actions.githubusercontent.com",
+          "condition": "repo:Divakar-v-cse/*:ref:refs/heads/main:environment:dev"
+        },
+        "tags": {
+          "Environment": "dev",
+          "Owner": "platform-engineering",
+          "CostCenter": "CC-4471",
+          "ManagedBy": "terraform",
+          "Tier": "identity"
+        }
+      },
+      {
+        "name": "hccp-dev-linux-sg",
+        "kind": "security_group",
+        "config": {
+          "description": "Linux application tier - ingress only from the ALB",
+          "ingress": [
+            {
+              "protocol": "tcp",
+              "from_port": 8080,
+              "to_port": 8080,
+              "source_sg": "sg-dev-alb"
+            }
+          ],
+          "egress": [
+            {
+              "protocol": "-1",
+              "from_port": 0,
+              "to_port": 0,
+              "cidr": "0.0.0.0/0"
+            }
+          ]
+        },
+        "tags": {
+          "Environment": "dev",
+          "Owner": "platform-engineering",
+          "CostCenter": "CC-4471",
+          "ManagedBy": "terraform",
+          "Tier": "compute"
+        }
+      },
+      {
+        "name": "hccp-dev-linux-tg",
+        "kind": "target_group",
+        "config": {
+          "port": 8080,
+          "protocol": "HTTP",
+          "health_check_path": "/healthz",
+          "targets": 2
+        },
+        "tags": {
+          "Environment": "dev",
+          "Owner": "platform-engineering",
+          "CostCenter": "CC-4471",
+          "ManagedBy": "terraform",
+          "Tier": "edge"
+        }
+      },
+      {
+        "name": "hccp-dev-private-1",
+        "kind": "subnet",
+        "config": {
+          "cidr_block": "10.20.20.0/24",
+          "availability_zone": "ap-south-1a",
+          "tier": "private",
+          "map_public_ip_on_launch": false
+        },
+        "tags": {
+          "Environment": "dev",
+          "Owner": "platform-engineering",
+          "CostCenter": "CC-4471",
+          "ManagedBy": "terraform",
+          "Tier": "private"
+        }
+      },
+      {
+        "name": "hccp-dev-private-2",
+        "kind": "subnet",
+        "config": {
+          "cidr_block": "10.20.24.0/24",
+          "availability_zone": "ap-south-1b",
+          "tier": "private",
+          "map_public_ip_on_launch": false
+        },
+        "tags": {
+          "Environment": "dev",
+          "Owner": "platform-engineering",
+          "CostCenter": "CC-4471",
+          "ManagedBy": "terraform",
+          "Tier": "private"
+        }
+      },
+      {
+        "name": "hccp-dev-private-3",
+        "kind": "subnet",
+        "config": {
+          "cidr_block": "10.20.28.0/24",
+          "availability_zone": "ap-south-1c",
+          "tier": "private",
+          "map_public_ip_on_launch": false
+        },
+        "tags": {
+          "Environment": "dev",
+          "Owner": "platform-engineering",
+          "CostCenter": "CC-4471",
+          "ManagedBy": "terraform",
+          "Tier": "private"
+        }
+      },
+      {
+        "name": "hccp-dev-private-rt",
+        "kind": "route_table",
+        "config": {
+          "routes": [
+            "0.0.0.0/0 -> nat",
+            "10.0.0.0/8 -> local"
+          ],
+          "associated_tiers": [
+            "private",
+            "data"
+          ]
+        },
+        "tags": {
+          "Environment": "dev",
+          "Owner": "platform-engineering",
+          "CostCenter": "CC-4471",
+          "ManagedBy": "terraform",
+          "Tier": "network"
+        }
+      },
+      {
+        "name": "hccp-dev-public-1",
+        "kind": "subnet",
+        "config": {
+          "cidr_block": "10.20.4.0/24",
+          "availability_zone": "ap-south-1a",
+          "tier": "public",
+          "map_public_ip_on_launch": true
+        },
+        "tags": {
+          "Environment": "dev",
+          "Owner": "platform-engineering",
+          "CostCenter": "CC-4471",
+          "ManagedBy": "terraform",
+          "Tier": "public"
+        }
+      },
+      {
+        "name": "hccp-dev-public-2",
+        "kind": "subnet",
+        "config": {
+          "cidr_block": "10.20.8.0/24",
+          "availability_zone": "ap-south-1b",
+          "tier": "public",
+          "map_public_ip_on_launch": true
+        },
+        "tags": {
+          "Environment": "dev",
+          "Owner": "platform-engineering",
+          "CostCenter": "CC-4471",
+          "ManagedBy": "terraform",
+          "Tier": "public"
+        }
+      },
+      {
+        "name": "hccp-dev-public-3",
+        "kind": "subnet",
+        "config": {
+          "cidr_block": "10.20.12.0/24",
+          "availability_zone": "ap-south-1c",
+          "tier": "public",
+          "map_public_ip_on_launch": true
+        },
+        "tags": {
+          "Environment": "dev",
+          "Owner": "platform-engineering",
+          "CostCenter": "CC-4471",
+          "ManagedBy": "terraform",
+          "Tier": "public"
+        }
+      },
+      {
+        "name": "hccp-dev-public-rt",
+        "kind": "route_table",
+        "config": {
+          "routes": [
+            "0.0.0.0/0 -> igw",
+            "10.0.0.0/8 -> local"
+          ],
+          "associated_tiers": [
+            "public"
+          ]
+        },
+        "tags": {
+          "Environment": "dev",
+          "Owner": "platform-engineering",
+          "CostCenter": "CC-4471",
+          "ManagedBy": "terraform",
+          "Tier": "network"
+        }
+      },
+      {
+        "name": "hccp-dev-ssm-role",
+        "kind": "iam_role",
+        "config": {
+          "assume_role_policy": {
+            "Service": "ec2.amazonaws.com"
+          },
+          "managed_policies": [
+            "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+          ],
+          "instance_profile": "hccp-dev-ssm-profile"
+        },
+        "tags": {
+          "Environment": "dev",
+          "Owner": "platform-engineering",
+          "CostCenter": "CC-4471",
+          "ManagedBy": "terraform",
+          "Tier": "identity"
+        }
+      },
+      {
+        "name": "hccp-dev-vpc",
+        "kind": "vpc",
+        "config": {
+          "cidr_block": "10.20.0.0/16",
+          "flow_logs_enabled": true,
+          "dns_hostnames": true,
+          "dns_support": true,
+          "availability_zones": [
+            "ap-south-1a",
+            "ap-south-1b",
+            "ap-south-1c"
+          ]
+        },
+        "tags": {
+          "Environment": "dev",
+          "Owner": "platform-engineering",
+          "CostCenter": "CC-4471",
+          "ManagedBy": "terraform",
+          "Tier": "network"
+        }
+      },
+      {
+        "name": "hccp-dev-web-01",
+        "kind": "ec2",
+        "config": {
+          "instance_type": "m6i.large",
+          "os": "Linux",
+          "ami": "ami-0a7f4c2b1f9a1c3d4",
+          "private_ip": "10.20.16.11",
+          "public_ip": null,
+          "availability_zone": "ap-south-1a",
+          "imds_v2_required": true,
+          "ebs_encrypted": true,
+          "ssm_managed": true,
+          "backup_enabled": true,
+          "subnet_tier": "private"
+        },
+        "tags": {
+          "Environment": "dev",
+          "Owner": "platform-engineering",
+          "CostCenter": "CC-4471",
+          "ManagedBy": "terraform",
+          "Tier": "compute",
+          "PatchGroup": "dev-linux"
+        }
+      },
+      {
+        "name": "hccp-dev-win-01",
+        "kind": "ec2",
+        "config": {
+          "instance_type": "t3.medium",
+          "os": "Windows Server 2022",
+          "ami": "ami-0a7f4c2b1f9a1c3d4",
+          "private_ip": "10.20.16.21",
+          "public_ip": null,
+          "availability_zone": "ap-south-1a",
+          "imds_v2_required": false,
+          "ebs_encrypted": true,
+          "ssm_managed": true,
+          "backup_enabled": true,
+          "subnet_tier": "private"
+        },
+        "tags": {
+          "Environment": "dev",
+          "Owner": "platform-engineering",
+          "CostCenter": "CC-4471",
+          "ManagedBy": "terraform",
+          "Tier": "compute",
+          "PatchGroup": "dev-windows"
+        }
+      },
+      {
+        "name": "hccp-dev-windows-sg",
+        "kind": "security_group",
+        "config": {
+          "description": "Windows IIS tier - RDP from the bastion only",
+          "ingress": [
+            {
+              "protocol": "tcp",
+              "from_port": 3389,
+              "to_port": 3389,
+              "cidr": "10.20.0.0/24"
+            },
+            {
+              "protocol": "tcp",
+              "from_port": 443,
+              "to_port": 443,
+              "source_sg": "sg-dev-alb"
+            }
+          ],
+          "egress": [
+            {
+              "protocol": "-1",
+              "from_port": 0,
+              "to_port": 0,
+              "cidr": "0.0.0.0/0"
+            }
+          ]
+        },
+        "tags": {
+          "Environment": "dev",
+          "Owner": "platform-engineering",
+          "CostCenter": "CC-4471",
+          "ManagedBy": "terraform",
+          "Tier": "compute"
+        }
+      },
+      {
+        "name": "hccp-dev-windows-tg",
+        "kind": "target_group",
+        "config": {
+          "port": 443,
+          "protocol": "HTTPS",
+          "health_check_path": "/health",
+          "targets": 1
+        },
+        "tags": {
+          "Environment": "dev",
+          "Owner": "platform-engineering",
+          "CostCenter": "CC-4471",
+          "ManagedBy": "terraform",
+          "Tier": "edge"
+        }
+      }
+    ],
+    "prod": [
+      {
+        "name": "hccp-prod-alb",
+        "kind": "load_balancer",
+        "config": {
+          "scheme": "internet-facing",
+          "type": "application",
+          "listeners": [
+            {
+              "port": 443,
+              "protocol": "HTTPS"
+            },
+            {
+              "port": 80,
+              "protocol": "HTTP",
+              "redirect_to": 443
+            }
+          ],
+          "deletion_protection": true,
+          "access_logs_enabled": true,
+          "drop_invalid_headers": true,
+          "waf_attached": true
+        },
+        "tags": {
+          "Environment": "prod",
+          "Owner": "platform-engineering",
+          "CostCenter": "CC-4471",
+          "ManagedBy": "terraform",
+          "Tier": "edge"
+        }
+      },
+      {
+        "name": "hccp-prod-alb-sg",
+        "kind": "security_group",
+        "config": {
+          "description": "Public ingress for the application load balancer",
+          "ingress": [
+            {
+              "protocol": "tcp",
+              "from_port": 443,
+              "to_port": 443,
+              "cidr": "0.0.0.0/0"
+            },
+            {
+              "protocol": "tcp",
+              "from_port": 80,
+              "to_port": 80,
+              "cidr": "0.0.0.0/0"
+            }
+          ],
+          "egress": [
+            {
+              "protocol": "tcp",
+              "from_port": 443,
+              "to_port": 443,
+              "cidr": "0.0.0.0/0"
+            }
+          ]
+        },
+        "tags": {
+          "Environment": "prod",
+          "Owner": "platform-engineering",
+          "CostCenter": "CC-4471",
+          "ManagedBy": "terraform",
+          "Tier": "edge"
+        }
+      },
+      {
+        "name": "hccp-prod-app-01",
+        "kind": "ec2",
+        "config": {
+          "instance_type": "m6i.large",
+          "os": "Linux",
+          "ami": "ami-0a7f4c2b1f9a1c3d4",
+          "private_ip": "10.10.16.31",
+          "public_ip": null,
+          "availability_zone": "ap-south-1a",
+          "imds_v2_required": true,
+          "ebs_encrypted": true,
+          "ssm_managed": true,
+          "backup_enabled": true,
+          "subnet_tier": "private"
+        },
+        "tags": {
+          "Environment": "prod",
+          "Owner": "platform-engineering",
+          "CostCenter": "CC-4471",
+          "ManagedBy": "terraform",
+          "Tier": "compute",
+          "PatchGroup": "prod-linux"
+        }
+      },
+      {
+        "name": "hccp-prod-app-02",
+        "kind": "ec2",
+        "config": {
+          "instance_type": "m6i.large",
+          "os": "Linux",
+          "ami": "ami-0a7f4c2b1f9a1c3d4",
+          "private_ip": "10.10.16.32",
+          "public_ip": null,
+          "availability_zone": "ap-south-1a",
+          "imds_v2_required": true,
+          "ebs_encrypted": true,
+          "ssm_managed": true,
+          "backup_enabled": true,
+          "subnet_tier": "private"
+        },
+        "tags": {
+          "Environment": "prod",
+          "Owner": "platform-engineering",
+          "CostCenter": "CC-4471",
+          "ManagedBy": "terraform",
+          "Tier": "compute",
+          "PatchGroup": "prod-linux"
+        }
+      },
+      {
+        "name": "hccp-prod-app-03",
+        "kind": "ec2",
+        "config": {
+          "instance_type": "m6i.large",
+          "os": "Linux",
+          "ami": "ami-0a7f4c2b1f9a1c3d4",
+          "private_ip": "10.10.16.33",
+          "public_ip": null,
+          "availability_zone": "ap-south-1a",
+          "imds_v2_required": true,
+          "ebs_encrypted": true,
+          "ssm_managed": true,
+          "backup_enabled": true,
+          "subnet_tier": "private"
+        },
+        "tags": {
+          "Environment": "prod",
+          "Owner": "platform-engineering",
+          "CostCenter": "CC-4471",
+          "ManagedBy": "terraform",
+          "Tier": "compute",
+          "PatchGroup": "prod-linux"
+        }
+      },
+      {
+        "name": "hccp-prod-data-1",
+        "kind": "subnet",
+        "config": {
+          "cidr_block": "10.10.36.0/24",
+          "availability_zone": "ap-south-1a",
+          "tier": "data",
+          "map_public_ip_on_launch": false
+        },
+        "tags": {
+          "Environment": "prod",
+          "Owner": "platform-engineering",
+          "CostCenter": "CC-4471",
+          "ManagedBy": "terraform",
+          "Tier": "data"
+        }
+      },
+      {
+        "name": "hccp-prod-data-2",
+        "kind": "subnet",
+        "config": {
+          "cidr_block": "10.10.40.0/24",
+          "availability_zone": "ap-south-1b",
+          "tier": "data",
+          "map_public_ip_on_launch": false
+        },
+        "tags": {
+          "Environment": "prod",
+          "Owner": "platform-engineering",
+          "CostCenter": "CC-4471",
+          "ManagedBy": "terraform",
+          "Tier": "data"
+        }
+      },
+      {
+        "name": "hccp-prod-data-3",
+        "kind": "subnet",
+        "config": {
+          "cidr_block": "10.10.44.0/24",
+          "availability_zone": "ap-south-1c",
+          "tier": "data",
+          "map_public_ip_on_launch": false
+        },
+        "tags": {
+          "Environment": "prod",
+          "Owner": "platform-engineering",
+          "CostCenter": "CC-4471",
+          "ManagedBy": "terraform",
+          "Tier": "data"
+        }
+      },
+      {
+        "name": "hccp-prod-data-sg",
+        "kind": "security_group",
+        "config": {
+          "description": "Database tier - no internet ingress",
+          "ingress": [
+            {
+              "protocol": "tcp",
+              "from_port": 5432,
+              "to_port": 5432,
+              "source_sg": "sg-prod-linux"
+            }
+          ],
+          "egress": []
+        },
+        "tags": {
+          "Environment": "prod",
+          "Owner": "platform-engineering",
+          "CostCenter": "CC-4471",
+          "ManagedBy": "terraform",
+          "Tier": "data"
+        }
+      },
+      {
+        "name": "hccp-prod-ec2-role",
+        "kind": "iam_role",
+        "config": {
+          "assume_role_policy": {
+            "Service": "ec2.amazonaws.com"
+          },
+          "inline_policies": [
+            {
+              "name": "runtime-access",
+              "statements": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "s3:GetObject"
+                  ],
+                  "Resource": "arn:aws:s3:::hccp-artifacts/*"
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "logs:CreateLogStream",
+                    "logs:PutLogEvents"
+                  ],
+                  "Resource": "*"
+                }
+              ]
+            }
+          ],
+          "instance_profile": "hccp-prod-ec2-profile",
+          "permissions_boundary": "arn:aws:iam::123456789012:policy/hccp-prod-boundary"
+        },
+        "tags": {
+          "Environment": "prod",
+          "Owner": "platform-engineering",
+          "CostCenter": "CC-4471",
+          "ManagedBy": "terraform",
+          "Tier": "identity"
+        }
+      },
+      {
+        "name": "hccp-prod-github-oidc-role",
+        "kind": "iam_role",
+        "config": {
+          "assume_role_policy": {
+            "Service": "oidc"
+          },
+          "federated_provider": "token.actions.githubusercontent.com",
+          "condition": "repo:Divakar-v-cse/*:ref:refs/heads/main:environment:prod"
+        },
+        "tags": {
+          "Environment": "prod",
+          "Owner": "platform-engineering",
+          "CostCenter": "CC-4471",
+          "ManagedBy": "terraform",
+          "Tier": "identity"
+        }
+      },
+      {
+        "name": "hccp-prod-linux-sg",
+        "kind": "security_group",
+        "config": {
+          "description": "Linux application tier - ingress only from the ALB",
+          "ingress": [
+            {
+              "protocol": "tcp",
+              "from_port": 8080,
+              "to_port": 8080,
+              "source_sg": "sg-prod-alb"
+            }
+          ],
+          "egress": [
+            {
+              "protocol": "-1",
+              "from_port": 0,
+              "to_port": 0,
+              "cidr": "0.0.0.0/0"
+            }
+          ]
+        },
+        "tags": {
+          "Environment": "prod",
+          "Owner": "platform-engineering",
+          "CostCenter": "CC-4471",
+          "ManagedBy": "terraform",
+          "Tier": "compute"
+        }
+      },
+      {
+        "name": "hccp-prod-linux-tg",
+        "kind": "target_group",
+        "config": {
+          "port": 8080,
+          "protocol": "HTTP",
+          "health_check_path": "/healthz",
+          "targets": 2
+        },
+        "tags": {
+          "Environment": "prod",
+          "Owner": "platform-engineering",
+          "CostCenter": "CC-4471",
+          "ManagedBy": "terraform",
+          "Tier": "edge"
+        }
+      },
+      {
+        "name": "hccp-prod-private-1",
+        "kind": "subnet",
+        "config": {
+          "cidr_block": "10.10.20.0/24",
+          "availability_zone": "ap-south-1a",
+          "tier": "private",
+          "map_public_ip_on_launch": false
+        },
+        "tags": {
+          "Environment": "prod",
+          "Owner": "platform-engineering",
+          "CostCenter": "CC-4471",
+          "ManagedBy": "terraform",
+          "Tier": "private"
+        }
+      },
+      {
+        "name": "hccp-prod-private-2",
+        "kind": "subnet",
+        "config": {
+          "cidr_block": "10.10.24.0/24",
+          "availability_zone": "ap-south-1b",
+          "tier": "private",
+          "map_public_ip_on_launch": false
+        },
+        "tags": {
+          "Environment": "prod",
+          "Owner": "platform-engineering",
+          "CostCenter": "CC-4471",
+          "ManagedBy": "terraform",
+          "Tier": "private"
+        }
+      },
+      {
+        "name": "hccp-prod-private-3",
+        "kind": "subnet",
+        "config": {
+          "cidr_block": "10.10.28.0/24",
+          "availability_zone": "ap-south-1c",
+          "tier": "private",
+          "map_public_ip_on_launch": false
+        },
+        "tags": {
+          "Environment": "prod",
+          "Owner": "platform-engineering",
+          "CostCenter": "CC-4471",
+          "ManagedBy": "terraform",
+          "Tier": "private"
+        }
+      },
+      {
+        "name": "hccp-prod-private-rt",
+        "kind": "route_table",
+        "config": {
+          "routes": [
+            "0.0.0.0/0 -> nat",
+            "10.0.0.0/8 -> local"
+          ],
+          "associated_tiers": [
+            "private",
+            "data"
+          ]
+        },
+        "tags": {
+          "Environment": "prod",
+          "Owner": "platform-engineering",
+          "CostCenter": "CC-4471",
+          "ManagedBy": "terraform",
+          "Tier": "network"
+        }
+      },
+      {
+        "name": "hccp-prod-public-1",
+        "kind": "subnet",
+        "config": {
+          "cidr_block": "10.10.4.0/24",
+          "availability_zone": "ap-south-1a",
+          "tier": "public",
+          "map_public_ip_on_launch": true
+        },
+        "tags": {
+          "Environment": "prod",
+          "Owner": "platform-engineering",
+          "CostCenter": "CC-4471",
+          "ManagedBy": "terraform",
+          "Tier": "public"
+        }
+      },
+      {
+        "name": "hccp-prod-public-2",
+        "kind": "subnet",
+        "config": {
+          "cidr_block": "10.10.8.0/24",
+          "availability_zone": "ap-south-1b",
+          "tier": "public",
+          "map_public_ip_on_launch": true
+        },
+        "tags": {
+          "Environment": "prod",
+          "Owner": "platform-engineering",
+          "CostCenter": "CC-4471",
+          "ManagedBy": "terraform",
+          "Tier": "public"
+        }
+      },
+      {
+        "name": "hccp-prod-public-3",
+        "kind": "subnet",
+        "config": {
+          "cidr_block": "10.10.12.0/24",
+          "availability_zone": "ap-south-1c",
+          "tier": "public",
+          "map_public_ip_on_launch": true
+        },
+        "tags": {
+          "Environment": "prod",
+          "Owner": "platform-engineering",
+          "CostCenter": "CC-4471",
+          "ManagedBy": "terraform",
+          "Tier": "public"
+        }
+      },
+      {
+        "name": "hccp-prod-public-rt",
+        "kind": "route_table",
+        "config": {
+          "routes": [
+            "0.0.0.0/0 -> igw",
+            "10.0.0.0/8 -> local"
+          ],
+          "associated_tiers": [
+            "public"
+          ]
+        },
+        "tags": {
+          "Environment": "prod",
+          "Owner": "platform-engineering",
+          "CostCenter": "CC-4471",
+          "ManagedBy": "terraform",
+          "Tier": "network"
+        }
+      },
+      {
+        "name": "hccp-prod-ssm-role",
+        "kind": "iam_role",
+        "config": {
+          "assume_role_policy": {
+            "Service": "ec2.amazonaws.com"
+          },
+          "managed_policies": [
+            "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+          ],
+          "instance_profile": "hccp-prod-ssm-profile"
+        },
+        "tags": {
+          "Environment": "prod",
+          "Owner": "platform-engineering",
+          "CostCenter": "CC-4471",
+          "ManagedBy": "terraform",
+          "Tier": "identity"
+        }
+      },
+      {
+        "name": "hccp-prod-vpc",
+        "kind": "vpc",
+        "config": {
+          "cidr_block": "10.10.0.0/16",
+          "flow_logs_enabled": true,
+          "dns_hostnames": true,
+          "dns_support": true,
+          "availability_zones": [
+            "ap-south-1a",
+            "ap-south-1b",
+            "ap-south-1c"
+          ]
+        },
+        "tags": {
+          "Environment": "prod",
+          "Owner": "platform-engineering",
+          "CostCenter": "CC-4471",
+          "ManagedBy": "terraform",
+          "Tier": "network"
+        }
+      },
+      {
+        "name": "hccp-prod-web-01",
+        "kind": "ec2",
+        "config": {
+          "instance_type": "m6i.large",
+          "os": "Linux",
+          "ami": "ami-0a7f4c2b1f9a1c3d4",
+          "private_ip": "10.10.16.11",
+          "public_ip": null,
+          "availability_zone": "ap-south-1a",
+          "imds_v2_required": true,
+          "ebs_encrypted": true,
+          "ssm_managed": true,
+          "backup_enabled": true,
+          "subnet_tier": "private"
+        },
+        "tags": {
+          "Environment": "prod",
+          "Owner": "platform-engineering",
+          "CostCenter": "CC-4471",
+          "ManagedBy": "terraform",
+          "Tier": "compute",
+          "PatchGroup": "prod-linux"
+        }
+      },
+      {
+        "name": "hccp-prod-web-02",
+        "kind": "ec2",
+        "config": {
+          "instance_type": "m6i.large",
+          "os": "Linux",
+          "ami": "ami-0a7f4c2b1f9a1c3d4",
+          "private_ip": "10.10.16.12",
+          "public_ip": null,
+          "availability_zone": "ap-south-1a",
+          "imds_v2_required": true,
+          "ebs_encrypted": true,
+          "ssm_managed": true,
+          "backup_enabled": true,
+          "subnet_tier": "private"
+        },
+        "tags": {
+          "Environment": "prod",
+          "Owner": "platform-engineering",
+          "CostCenter": "CC-4471",
+          "ManagedBy": "terraform",
+          "Tier": "compute",
+          "PatchGroup": "prod-linux"
+        }
+      },
+      {
+        "name": "hccp-prod-web-03",
+        "kind": "ec2",
+        "config": {
+          "instance_type": "m6i.large",
+          "os": "Linux",
+          "ami": "ami-0a7f4c2b1f9a1c3d4",
+          "private_ip": "10.10.16.13",
+          "public_ip": null,
+          "availability_zone": "ap-south-1a",
+          "imds_v2_required": true,
+          "ebs_encrypted": true,
+          "ssm_managed": true,
+          "backup_enabled": true,
+          "subnet_tier": "private"
+        },
+        "tags": {
+          "Environment": "prod",
+          "Owner": "platform-engineering",
+          "CostCenter": "CC-4471",
+          "ManagedBy": "terraform",
+          "Tier": "compute",
+          "PatchGroup": "prod-linux"
+        }
+      },
+      {
+        "name": "hccp-prod-win-01",
+        "kind": "ec2",
+        "config": {
+          "instance_type": "t3.medium",
+          "os": "Windows Server 2022",
+          "ami": "ami-0a7f4c2b1f9a1c3d4",
+          "private_ip": "10.10.16.41",
+          "public_ip": null,
+          "availability_zone": "ap-south-1a",
+          "imds_v2_required": true,
+          "ebs_encrypted": true,
+          "ssm_managed": true,
+          "backup_enabled": true,
+          "subnet_tier": "private"
+        },
+        "tags": {
+          "Environment": "prod",
+          "Owner": "platform-engineering",
+          "CostCenter": "CC-4471",
+          "ManagedBy": "terraform",
+          "Tier": "compute",
+          "PatchGroup": "prod-windows"
+        }
+      },
+      {
+        "name": "hccp-prod-windows-sg",
+        "kind": "security_group",
+        "config": {
+          "description": "Windows IIS tier - RDP from the bastion only",
+          "ingress": [
+            {
+              "protocol": "tcp",
+              "from_port": 3389,
+              "to_port": 3389,
+              "cidr": "10.20.0.0/24"
+            },
+            {
+              "protocol": "tcp",
+              "from_port": 443,
+              "to_port": 443,
+              "source_sg": "sg-prod-alb"
+            }
+          ],
+          "egress": [
+            {
+              "protocol": "-1",
+              "from_port": 0,
+              "to_port": 0,
+              "cidr": "0.0.0.0/0"
+            }
+          ]
+        },
+        "tags": {
+          "Environment": "prod",
+          "Owner": "platform-engineering",
+          "CostCenter": "CC-4471",
+          "ManagedBy": "terraform",
+          "Tier": "compute"
+        }
+      },
+      {
+        "name": "hccp-prod-windows-tg",
+        "kind": "target_group",
+        "config": {
+          "port": 443,
+          "protocol": "HTTPS",
+          "health_check_path": "/health",
+          "targets": 1
+        },
+        "tags": {
+          "Environment": "prod",
+          "Owner": "platform-engineering",
+          "CostCenter": "CC-4471",
+          "ManagedBy": "terraform",
+          "Tier": "edge"
+        }
+      }
+    ]
+  }
+}

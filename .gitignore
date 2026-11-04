@@ -1,0 +1,108 @@
+# ------------------------------
+# Secrets and local configuration
+# ------------------------------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.ppk
+*.p12
+*.pfx
+credentials
+credentials.json
+.aws/
+kubeconfig
+*.kubeconfig
+
+# ------------------------------
+# Terraform
+# ------------------------------
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+*.tfplan
+*.tfplan.json
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+.terraform.lock.hcl.bak
+tfplan
+plan.out
+**/.terraformrc
+
+# ------------------------------
+# Ansible
+# ------------------------------
+*.retry
+ansible/.vault_pass
+ansible/inventories/*/hosts.yml.local
+ansible/inventory.dynamic.yml
+collections/
+roles/geerlingguy.*/
+
+# ------------------------------
+# Python
+# ------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+junit*.xml
+*.egg-info/
+dist/
+build/
+.uv/
+pip-wheel-metadata/
+
+# ------------------------------
+# Node / frontend
+# ------------------------------
+node_modules/
+frontend/dist/
+frontend/coverage/
+.vite/
+*.tsbuildinfo
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ------------------------------
+# OS / editors
+# ------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json.example
+*.swp
+*~
+
+# ------------------------------
+# Runtime artifacts
+# ------------------------------
+artifacts/
+reports/*.json
+!reports/.gitkeep
+logs/
+*.log
+tmp/

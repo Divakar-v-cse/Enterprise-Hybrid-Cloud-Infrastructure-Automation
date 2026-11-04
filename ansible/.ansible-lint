@@ -1,0 +1,15 @@
+---
+profile: production
+exclude_paths:
+  - collections/
+  - .cache/
+parseable: true
+strict: false
+skip_list:
+  - yaml[line-length]        # templated nginx/systemd lines exceed 160 chars
+  - name[casing]             # playbook names intentionally use sentence case
+  - no-changed-when          # handlers and validation tasks are read-only
+  - risky-file-permissions   # explicit modes are set on every managed file
+warn_list:
+  - experimental
+  - fqcn[action-core]

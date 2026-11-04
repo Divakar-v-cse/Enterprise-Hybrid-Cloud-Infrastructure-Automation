@@ -1,0 +1,35 @@
+---
+- name: Install firewalld
+  ansible.builtin.dnf:
+    name: firewalld
+    state: present
+
+- name: Enable firewalld
+  ansible.builtin.service:
+    name: firewalld
+    state: started
+    enabled: true
+
+- name: Allow the declared TCP ports
+  ansible.posix.firewalld:
+    port: "{{ item }}/tcp"
+    permanent: true
+    immediate: true
+    state: enabled
+  loop: "{{ firewall_allowed_tcp_ports }}"
+
+- name: Allow the declared UDP ports
+  ansible.posix.firewalld:
+    port: "{{ item }}/udp"
+    permanent: true
+    immediate: true
+    state: enabled
+  loop: "{{ firewall_allowed_udp_ports | default([]) }}"
+
+- name: Set the default zone target to DROP
+  ansible.posix.firewalld:
+    zone: public
+    state: enabled
+    permanent: true
+    immediate: true
+    target: DROP

@@ -1,0 +1,5 @@
+---
+- name: Restart W3SVC
+  ansible.windows.win_service:
+    name: W3SVC
+    state: restarted

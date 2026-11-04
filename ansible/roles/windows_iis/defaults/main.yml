@@ -1,0 +1,9 @@
+---
+iis_site_name: HCCP
+iis_app_pool: HCCP-AppPool
+iis_physical_path: C:\inetpub\hccp
+iis_binding_port: 80
+iis_app_pool_identity: ApplicationPoolIdentity
+windows_disable_tls_10: true
+windows_disable_tls_11: true
+windows_disable_ssl3: true

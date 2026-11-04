@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{ app_name }} - {{ environment_name | default('dev') }}</title>
+    <style>
+      body { font-family: system-ui, sans-serif; background: #0b1220; color: #e5e7eb; margin: 0; }
+      main { max-width: 40rem; margin: 12vh auto; padding: 2rem; border: 1px solid #1f2937; border-radius: 12px; }
+      code { color: #93c5fd; }
+      .badge { display: inline-block; padding: .25rem .6rem; border-radius: 999px; background: #064e3b; color: #6ee7b7; font-size: .8rem; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <span class="badge">healthy</span>
+      <h1>{{ app_name }}</h1>
+      <p>Environment: <code>{{ environment_name | default('dev') }}</code></p>
+      <p>Release: <code>{{ app_release_version }}</code></p>
+      <p>Configured by Ansible. Health endpoint: <code>{{ app_health_path }}</code></p>
+    </main>
+  </body>
+</html>

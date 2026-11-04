@@ -1,0 +1,20 @@
+# Managed by Ansible - see ansible/roles/common/tasks/sshd.yml
+PermitRootLogin {{ sshd_permit_root_login | default('no') }}
+PasswordAuthentication {{ sshd_password_authentication | default('no') }}
+KbdInteractiveAuthentication no
+PubkeyAuthentication yes
+PermitEmptyPasswords no
+MaxAuthTries {{ sshd_max_auth_tries | default(3) }}
+MaxSessions 10
+ClientAliveInterval {{ sshd_client_alive_interval | default(300) }}
+ClientAliveCountMax {{ sshd_client_alive_count_max | default(2) }}
+{% if sshd_allow_groups is defined %}
+AllowGroups {{ sshd_allow_groups }}
+{% endif %}
+X11Forwarding no
+AllowAgentForwarding no
+AllowTcpForwarding yes
+GatewayPorts no
+LogLevel VERBOSE
+UseDNS no
+Banner /etc/motd

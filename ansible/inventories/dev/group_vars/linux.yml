@@ -1,0 +1,36 @@
+---
+# Linux tier configuration.
+nginx_worker_processes: auto
+nginx_worker_connections: 2048
+nginx_client_max_body_size: 10m
+nginx_ssl_protocols: "TLSv1.2 TLSv1.3"
+nginx_server_tokens: "off"
+
+# Only these ports stay open once the firewall role runs.
+firewall_allowed_tcp_ports:
+  - 8080   # application traffic from the ALB security group
+  - 22     # inherited from the security group; close it once SSM is proven
+
+firewall_allowed_udp_ports:
+  - 123    # NTP
+
+# SSH hardening (password auth stays off; SSM is the primary access path)
+sshd_permit_root_login: "no"
+sshd_password_authentication: "no"
+sshd_max_auth_tries: 3
+sshd_client_alive_interval: 300
+sshd_client_alive_count_max: 2
+sshd_allow_groups: "platform-admin deploy-bot"
+
+# Kernel hardening
+sysctl_settings:
+  net.ipv4.conf.all.rp_filter: 1
+  net.ipv4.conf.default.rp_filter: 1
+  net.ipv4.tcp_syncookies: 1
+  net.ipv4.conf.all.accept_redirects: 0
+  net.ipv4.conf.all.send_redirects: 0
+  net.ipv4.conf.all.accept_source_route: 0
+  net.ipv6.conf.all.accept_redirects: 0
+  kernel.randomize_va_space: 2
+  fs.protected_hardlinks: 1
+  fs.protected_symlinks: 1

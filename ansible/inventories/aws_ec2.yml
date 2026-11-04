@@ -1,0 +1,35 @@
+---
+# Dynamic inventory for real AWS accounts. Enable with:
+#   ansible-inventory -i inventories/aws_ec2.yml --graph
+# The control plane also emits the same grouping via terraform outputs.
+plugin: amazon.aws.aws_ec2
+regions:
+  - ap-south-1
+filters:
+  instance-state-name:
+    - running
+  tag:ManagedBy:
+    - terraform
+keyed_groups:
+  - key: tags.Environment
+    prefix: env
+    separator: "_"
+  - key: tags.PatchGroup
+    prefix: patch
+    separator: "_"
+  - key: tags.OS
+    prefix: os
+    separator: "_"
+  - key: tags.Role
+    prefix: role
+    separator: "_"
+compose:
+  ansible_host: private_ip_address
+  ansible_user: "'ec2-user'"
+  ansible_connection: >-
+    'winrm' if (tags.OS | default('Linux')) == 'Windows Server 2022' else 'ssh'
+hostnames:
+  - tag:Name
+groups:
+  linux: "'Linux' in (tags.OS | default('Linux'))"
+  windows: "'Windows' in (tags.OS | default('Linux'))"

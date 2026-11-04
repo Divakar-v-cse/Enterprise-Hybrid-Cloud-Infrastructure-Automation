@@ -1,0 +1,89 @@
+name: Drift detection
+
+on:
+  schedule:
+    # Daily at 02:15 UTC, before the European and Indian working day.
+    - cron: "15 2 * * *"
+  workflow_dispatch:
+    inputs:
+      provider:
+        description: Inventory source
+        type: choice
+        options: [mock, aws]
+        default: mock
+      environment:
+        description: Environment to compare
+        type: choice
+        options: [dev, prod, all]
+        default: all
+
+permissions:
+  id-token: write
+  contents: read
+  issues: write
+
+concurrency:
+  group: drift-detection
+  cancel-in-progress: false
+
+env:
+  PYTHON_VERSION: "3.12"
+  AWS_REGION: ap-south-1
+  PROVIDER: ${{ github.event.inputs.provider || 'mock' }}
+
+jobs:
+  detect:
+    name: Compare live state to the contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r backend/requirements.txt
+
+      - name: Assume the read-only audit role
+        if: ${{ env.PROVIDER == 'aws' && vars.AWS_AUDIT_ROLE_ARN != '' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_AUDIT_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: gha-drift-detection
+
+      - name: Detect drift
+        id: drift
+        shell: bash
+        run: |
+          set +e
+          if [ "$PROVIDER" = "aws" ]; then
+            python scripts/drift_detect.py --provider aws \
+              --environment "${{ github.event.inputs.environment || 'all' }}" \
+              --format markdown --output reports/drift.md --fail-on-drift
+          else
+            # Fixture provider: proves the detector and report rendering work
+            # without requiring AWS credentials in a public repository.
+            python scripts/drift_detect.py --provider mock --environment all \
+              --format markdown --output reports/drift.md
+          fi
+          code=$?
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          cat reports/drift.md >> "$GITHUB_STEP_SUMMARY"
+          exit 0
+
+      - name: Upload drift report
+        uses: actions/upload-artifact@v4
+        with:
+          name: drift-report-${{ github.run_number }}
+          path: reports/drift.md
+          retention-days: 30
+
+      - name: Fail when real drift was found
+        if: ${{ steps.drift.outputs.exit_code != '0' }}
+        run: |
+          echo "Drift detected against the live account. Review the job summary." >&2
+          exit 1

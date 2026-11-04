@@ -1,0 +1,23 @@
+---
+- name: Apply the security baseline to Linux
+  hosts: linux
+  become: true
+  gather_facts: true
+  roles:
+    - role: common
+      tags: [hardening]
+    - role: firewall
+      tags: [hardening]
+  post_tasks:
+    - name: Confirm the SSH daemon still accepts the hardened configuration
+      ansible.builtin.command: sshd -t
+      changed_when: false
+
+- name: Apply the security baseline to Windows
+  hosts: windows
+  gather_facts: true
+  tasks:
+    - name: Harden the TLS stack
+      ansible.builtin.include_role:
+        name: windows_iis
+        tasks_from: tls.yml

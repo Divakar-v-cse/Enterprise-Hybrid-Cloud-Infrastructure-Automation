@@ -1,0 +1,12 @@
+# Managed by Ansible - local changes are overwritten.
+# Amazon Time Sync Service is link-local and does not require internet egress.
+{% for server in common_ntp_servers %}
+server {{ server }} iburst prefer
+{% endfor %}
+
+driftfile /var/lib/chrony/drift
+makestep 1.0 3
+rtcsync
+logdir /var/log/chrony
+keyfile /etc/chrony.keys
+leapsectz right/UTC

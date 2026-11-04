@@ -1,0 +1,27 @@
+# Gitleaks configuration.
+# Demo credentials and fixtures are intentionally public; everything else is
+# scanned with the default rule set.
+title = "Enterprise Hybrid Cloud Infrastructure Automation"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Documented demo credentials and test fixtures"
+paths = [
+  '''\.env\.example$''',
+  '''README\.md$''',
+  '''docs/.*\.md$''',
+  '''backend/tests/.*\.py$''',
+  '''frontend/src/pages/LoginPage\.tsx$''',
+  '''ansible/inventories/.*\.yml$''',
+]
+
+# Values below are seeded demo passwords, never used outside local/CI runs.
+regexes = [
+  '''Admin#2026''',
+  '''Operator#2026''',
+  '''Approver#2026''',
+  '''Viewer#2026''',
+  '''change-me-generate-a-random-48-byte-secret''',
+]

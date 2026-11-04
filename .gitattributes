@@ -1,0 +1,16 @@
+# Normalise line endings: LF in the repository, CRLF only for Windows scripts.
+* text=auto eol=lf
+
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.tfstate binary
+*.tfstate.backup binary

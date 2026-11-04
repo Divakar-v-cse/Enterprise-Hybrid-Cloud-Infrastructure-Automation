@@ -1,0 +1,48 @@
+---
+- name: Apply sysctl hardening
+  ansible.posix.sysctl:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    state: present
+    sysctl_set: true
+    reload: true
+    sysctl_file: /etc/sysctl.d/60-hccp-hardening.conf
+  loop: "{{ common_sysctl_settings | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+  when: common_sysctl_settings | length > 0
+
+- name: Configure persistent journal storage
+  ansible.builtin.copy:
+    dest: /etc/systemd/journald.conf.d/60-hccp.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      [Journal]
+      Storage=persistent
+      SystemMaxUse={{ common_journald_max_use }}
+      MaxRetentionSec={{ common_journald_retention }}
+      ForwardToSyslog=yes
+  notify: Restart systemd-journald
+
+- name: Ensure auditd is enabled
+  ansible.builtin.service:
+    name: auditd
+    state: started
+    enabled: true
+
+- name: Install the audit rules for identity and privilege changes
+  ansible.builtin.copy:
+    dest: /etc/audit/rules.d/60-hccp.rules
+    owner: root
+    group: root
+    mode: "0640"
+    content: |
+      -w /etc/passwd -p wa -k identity
+      -w /etc/group -p wa -k identity
+      -w /etc/shadow -p wa -k identity
+      -w /etc/sudoers -p wa -k privileged
+      -w /etc/sudoers.d/ -p wa -k privileged
+      -a always,exit -F arch=b64 -S execve -F euid=0 -k root_exec
+  notify: Reload audit rules

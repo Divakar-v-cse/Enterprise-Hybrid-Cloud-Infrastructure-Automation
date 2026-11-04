@@ -1,0 +1,36 @@
+---
+- name: Configure Linux servers
+  hosts: linux
+  become: true
+  gather_facts: true
+  any_errors_fatal: true
+
+  pre_tasks:
+    - name: Verify connectivity before changing anything
+      ansible.builtin.ping:
+
+    - name: Assert the target environment is declared
+      ansible.builtin.assert:
+        that:
+          - target_env in ['dev', 'prod']
+        fail_msg: "target_env must be dev or prod (got {{ target_env | default('undefined') }})"
+
+  roles:
+    - role: common
+      tags: [common, baseline, hardening]
+    - role: users
+      tags: [users, baseline]
+    - role: firewall
+      tags: [firewall, hardening]
+    - role: security_updates
+      tags: [patch, security]
+    - role: linux_webapp
+      tags: [app, deploy]
+
+  post_tasks:
+    - name: Summarise the applied configuration
+      ansible.builtin.debug:
+        msg:
+          - "host={{ inventory_hostname }} os={{ ansible_distribution }} {{ ansible_distribution_version }}"
+          - "kernel={{ ansible_kernel }} timezone={{ common_timezone }}"
+          - "release={{ app_release_version }} listening={{ app_port }}"

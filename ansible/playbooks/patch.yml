@@ -1,0 +1,62 @@
+---
+# Rolling security patch run. One host at a time so the ALB always has a
+# healthy target, with a post-patch health assertion before moving on.
+- name: Apply security updates to Linux (serial)
+  hosts: linux
+  become: true
+  serial: 1
+  max_fail_percentage: 0
+  gather_facts: true
+
+  pre_tasks:
+    - name: Take the host out of service
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ app_port }}/healthz"
+        status_code: 200
+      register: precheck
+      retries: 3
+      delay: 5
+      until: precheck.status == 200
+      changed_when: false
+
+  roles:
+    - role: security_updates
+      vars:
+        patch_now: true
+
+  post_tasks:
+    - name: Confirm the application recovered
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ app_port }}/healthz"
+        status_code: 200
+      register: postcheck
+      retries: 10
+      delay: 10
+      until: postcheck.status == 200
+      changed_when: false
+
+    - name: Report the patched host
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }} patched and healthy"
+
+- name: Apply security updates to Windows (serial)
+  hosts: windows
+  serial: 1
+  max_fail_percentage: 0
+  gather_facts: true
+
+  roles:
+    - role: security_updates
+      vars:
+        patch_now: true
+
+  post_tasks:
+    - name: Confirm IIS is serving traffic again
+      ansible.windows.win_uri:
+        url: "http://localhost/health.txt"
+        status_code: 200
+        return_content: true
+      register: iis_health
+      retries: 10
+      delay: 10
+      until: iis_health.status == 200

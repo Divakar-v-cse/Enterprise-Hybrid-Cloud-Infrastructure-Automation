@@ -1,0 +1,44 @@
+---
+- name: Install dnf-automatic
+  ansible.builtin.dnf:
+    name: dnf-automatic
+    state: present
+
+- name: Configure the automatic upgrade policy
+  ansible.builtin.copy:
+    dest: /etc/dnf/automatic.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      [commands]
+      upgrade_type = security
+      download_updates = yes
+      apply_updates = yes
+
+      [emitters]
+      emit_via = stdio
+
+      [email]
+      email_from = root@localhost
+      email_to = root
+      email_host = localhost
+
+- name: Enable the dnf-automatic timer
+  ansible.builtin.systemd:
+    name: dnf-automatic.timer
+    state: started
+    enabled: true
+    daemon_reload: true
+
+- name: Apply pending security updates now
+  ansible.builtin.dnf:
+    name: "*"
+    state: latest
+    security: true
+    update_cache: true
+  when: patch_now | default(false) | bool
+  register: dnf_upgrade
+  retries: 2
+  delay: 10
+  until: dnf_upgrade is not failed

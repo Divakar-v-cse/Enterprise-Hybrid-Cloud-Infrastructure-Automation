@@ -1,0 +1,27 @@
+---
+- name: Ensure the local operations group exists
+  ansible.windows.win_group:
+    name: HCCP-Operations
+    description: Hybrid Cloud operations group managed by Ansible
+    state: present
+
+- name: Create Windows administrative accounts
+  ansible.windows.win_user:
+    name: "{{ item.name }}"
+    fullname: "{{ item.comment | default(item.name) }}"
+    password: "{{ item.windows_password | default(lookup('env', 'HCCP_WIN_DEFAULT_PASSWORD')) }}"
+    password_never_expires: false
+    user_cannot_change_password: false
+    groups:
+      - HCCP-Operations
+      - Administrators
+    state: present
+  loop: "{{ admin_users | selectattr('windows_password', 'defined') | list }}"
+  loop_control:
+    label: "{{ item.name }}"
+  no_log: true
+  when: lookup('env', 'HCCP_WIN_DEFAULT_PASSWORD') | length > 0
+
+- name: Record managed local accounts for the compliance report
+  ansible.builtin.set_fact:
+    hccp_managed_accounts: "{{ admin_users | map(attribute='name') | list }}"

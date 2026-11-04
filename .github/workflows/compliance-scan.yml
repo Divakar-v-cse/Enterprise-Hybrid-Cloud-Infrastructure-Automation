@@ -1,0 +1,75 @@
+name: Compliance scan
+
+on:
+  schedule:
+    - cron: "0 3 * * 1" # Mondays 03:00 UTC
+  workflow_dispatch:
+    inputs:
+      provider:
+        description: Inventory source
+        type: choice
+        options: [mock, aws]
+        default: mock
+      fail_on_critical:
+        description: Fail the run on critical findings
+        type: boolean
+        default: false
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: compliance-scan
+  cancel-in-progress: false
+
+env:
+  PYTHON_VERSION: "3.12"
+  AWS_REGION: ap-south-1
+
+jobs:
+  scan:
+    name: Evaluate policy baseline
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r backend/requirements.txt
+
+      - name: Assume the read-only audit role
+        if: ${{ (github.event.inputs.provider || 'mock') == 'aws' && vars.AWS_AUDIT_ROLE_ARN != '' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_AUDIT_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: gha-compliance-scan
+
+      - name: Run the policy engine
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p reports
+          ARGS="--provider ${{ github.event.inputs.provider || 'mock' }} --format markdown --output reports/compliance.md"
+          if [ "${{ github.event.inputs.fail_on_critical }}" = "true" ]; then
+            ARGS="$ARGS --fail-on-critical"
+          fi
+          python scripts/compliance_report.py $ARGS | tee reports/compliance.txt
+          echo "### Compliance" >> "$GITHUB_STEP_SUMMARY"
+          cat reports/compliance.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload compliance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compliance-report-${{ github.run_number }}
+          path: |
+            reports/compliance.md
+            reports/compliance.txt
+          retention-days: 90

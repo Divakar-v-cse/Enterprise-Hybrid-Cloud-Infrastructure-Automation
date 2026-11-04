@@ -1,0 +1,11 @@
+---
+webapp_root: /var/www/hccp
+app_port: 8080
+app_health_path: /healthz
+app_name: hccp-web
+app_release_version: "1.0.0"
+app_upstream: null
+nginx_worker_processes: auto
+nginx_worker_connections: 2048
+nginx_client_max_body_size: 10m
+nginx_server_tokens: "off"
