@@ -85,7 +85,7 @@ jobs:
         run: terraform output -json > outputs.json
 
       - name: Upload outputs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: terraform-outputs-${{ github.event.inputs.environment }}
           path: terraform/environments/${{ github.event.inputs.environment }}/outputs.json
